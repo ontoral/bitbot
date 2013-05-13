@@ -1,4 +1,5 @@
 btcapi.py
+*.csv
 *.swp
 *.py[cod]
 
