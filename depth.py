@@ -1,7 +1,8 @@
-import urllib2
-import json
+import csv
 from datetime import datetime
 import time
+
+import requests
 
 UPDATE_DIVISOR = 2.0
 UPDATE_COUNT = 100
@@ -13,6 +14,7 @@ urls = {'ticker': 'https://btc-e.com/api/2/{}/ticker',
 class BTCExchange(object):
     def __init__(self, pair):
         self.pair = pair
+        self.urls = {key: value.format(pair) for (key, value) in urls.iteritems()}
         self.curr_from, self.curr_to = pair.split('_')
         self.load_trades(pair)
         #self.update_all()
@@ -28,8 +30,8 @@ class BTCExchange(object):
         # Query (update_count) rows
         
         # For local testing, read from btc-e.com
-        url = urls['trades'].format(self.pair)
-        trades = json.loads(urllib2.urlopen(url).read())
+        r = requests.get(self.urls['trades'])
+        trades = r.json()
 
         # Set update_divisor
         self.update_divisor = UPDATE_DIVISOR
@@ -52,7 +54,7 @@ class BTCExchange(object):
         oldest = datetime.fromtimestamp(self.trades[-self.update_count].date)
         self.update_interval = (newest - oldest).total_seconds() / self.update_divisor
 
-        msg = 'New Trades: {0}, Recent TID: {1.recent_tid}, Next Update: {1.update_interval} s, Div: {1.update_divisor}, Count: {1.update_count}'
+        msg = '[{1.pair}] ==> New Trades: {0}, Recent TID: {1.recent_tid}, Next Update: {1.update_interval} s, Div: {1.update_divisor}, Count: {1.update_count}'
         print msg.format(new_trades_count, self)
 
     def update_all(self):
@@ -61,8 +63,8 @@ class BTCExchange(object):
         #self.update_depth()
 
     def update_feed(self, feed):
-        url = urls[feed].format(self.pair)
-        feed_info = json.loads(urllib2.urlopen(url).read())
+        r = requests.get(self.urls['trades'])
+        feed_info = r.json()
         if type(feed_info) == dict:
             if feed_info.has_key(feed):
                 feed_info = feed_info[feed]
@@ -73,8 +75,8 @@ class BTCExchange(object):
     def update_trades(self):
         num_new_trades = 0
         # Parse and add new trades
-        url = urls['trades'].format(self.pair)
-        trades = json.loads(urllib2.urlopen(url).read())
+        r = requests.get(self.urls['trades'])
+        trades = r.json()
         feed_length = len(trades)
 
         # Invert list to add from oldest to newest
@@ -104,7 +106,33 @@ class BTCTrade(object):
         repr = '{when} {0.trade_type}: {0.amount} {0.item} -> {0.price_currency} @ {0.price}'
         return repr.format(self, when=time.strftime('%F %T', time.gmtime(self.date)))
 
-ltc_btc = BTCExchange('ltc_btc')
-for trade in ltc_btc.trades:
-    print trade
+
+if __name__ == '__main__':
+    pairs = ['ltc_usd', 'btc_usd', 'ltc_btc']
+    exchanges = [BTCExchange(pair) for pair in pairs]
+
+    def update_exchanges():
+        for exchange in exchanges:
+            exchange.update_trades()
+
+    def calc_interval():
+        intervals = [exchange.update_interval for exchange in exchanges]
+        return min(intervals) / 2
+
+    def write_csv():
+        for exchange in exchanges:
+            num_rows = max(0, len(exchange.trades) - UPDATE_COUNT)
+            with open(exchange.pair + '.csv', 'a') as f:
+                csv_writer = csv.writer(f)
+                for ii in range(num_rows):
+                    csv_writer.writerow(exchange.trades[ii].__dict__.values())
+            exchange.trades = exchange.trades[num_rows:]
+
+    def run_it():
+        while True:
+            update_exchanges()
+            write_csv()
+            interval = calc_interval()
+            print 'Sleeping {} minutes...'.format(interval / 60)
+            time.sleep(interval)
 
