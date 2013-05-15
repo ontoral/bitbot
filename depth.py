@@ -130,9 +130,12 @@ if __name__ == '__main__':
 
     def run_it():
         while True:
-            update_exchanges()
-            write_csv()
-            interval = calc_interval()
+            try:
+                update_exchanges()
+                write_csv()
+                interval = calc_interval()
+            except:
+                interval = 5
             print 'Sleeping {} minutes...'.format(interval / 60)
             time.sleep(interval)
 
