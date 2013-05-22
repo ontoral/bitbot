@@ -54,8 +54,8 @@ class BTCExchange(object):
         oldest = datetime.fromtimestamp(self.trades[-self.update_count].date)
         self.update_interval = (newest - oldest).total_seconds() / self.update_divisor
 
-        msg = '[{1.pair}] ==> New Trades: {0}, Recent TID: {1.recent_tid}, Next Update: {1.update_interval} s, Div: {1.update_divisor}, Count: {1.update_count}'
-        print msg.format(new_trades_count, self)
+        msg = '[{1.pair}] ==> New Trades: {0}, TID: {1.recent_tid}, Update: {1.update_interval} s, Div: {1.update_divisor}, Count: {1.update_count}'
+        print msg.format(new_trades_count, self) + '\n\t' + str(self.trades[-1])
 
     def update_all(self):
         #self.update_ticker()
